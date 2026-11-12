@@ -1,18 +1,20 @@
 import axios from 'axios'
 
+const PRODUCTION_API = 'https://digi-backend-management-production.up.railway.app/api'
+
 function resolveApiBase() {
   const fromEnv = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '')
   if (fromEnv) return fromEnv.endsWith('/api') ? fromEnv : `${fromEnv}/api`
 
-  // Browser production must never silently use localhost
+  // Production / hosted frontend must never use localhost
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
-      console.error(
-        '[CRM] VITE_API_URL is not set. Set it in Vercel to your Railway API URL, e.g. https://xxx.up.railway.app/api',
-      )
+      return PRODUCTION_API
     }
   }
+
+  // Local development default
   return 'http://127.0.0.1:8000/api'
 }
 

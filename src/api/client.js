@@ -1,6 +1,22 @@
 import axios from 'axios'
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
+function resolveApiBase() {
+  const fromEnv = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '')
+  if (fromEnv) return fromEnv.endsWith('/api') ? fromEnv : `${fromEnv}/api`
+
+  // Browser production must never silently use localhost
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host && host !== 'localhost' && host !== '127.0.0.1') {
+      console.error(
+        '[CRM] VITE_API_URL is not set. Set it in Vercel to your Railway API URL, e.g. https://xxx.up.railway.app/api',
+      )
+    }
+  }
+  return 'http://127.0.0.1:8000/api'
+}
+
+export const API_BASE = resolveApiBase()
 
 const ACCESS_KEY = 'dg_access'
 const REFRESH_KEY = 'dg_refresh'
@@ -107,9 +123,15 @@ const labelize = (k) => k.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase
 export function errorMessage(err) {
   if (!err) return 'Something went wrong'
   if (!err.response) {
-    return err.message === 'Network Error'
-      ? 'Cannot reach the server. Check that the backend is running on port 8000.'
-      : err.message || 'Something went wrong'
+    const usingLocal =
+      typeof API_BASE === 'string' &&
+      (API_BASE.includes('127.0.0.1') || API_BASE.includes('localhost'))
+    if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+      return usingLocal
+        ? 'API URL is still localhost. Set VITE_API_URL in Vercel to your Railway backend URL (https://….up.railway.app/api), then redeploy.'
+        : `Cannot reach the API at ${API_BASE}. Check Railway domain, CORS, and that the backend is online.`
+    }
+    return err.message || 'Something went wrong'
   }
   const d = err.response.data
   if (!d) return `Request failed (${err.response.status})`
